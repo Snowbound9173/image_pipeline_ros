@@ -318,7 +318,7 @@ class Calibrator():
     """
     Base class for calibration system
     """
-    def __init__(self, downsample_ratio=1,boards, flags=0, fisheye_flags = 0, pattern=Patterns.Chessboard, name='',
+    def __init__(self, boards, downsample_ratio=1, flags=0, fisheye_flags = 0, pattern=Patterns.Chessboard, name='',
     checkerboard_flags=cv2.CALIB_CB_FAST_CHECK, max_chessboard_speed = -1.0):        
         # Ordering the dimensions for the different detectors is actually a minefield...
         if pattern == Patterns.Chessboard:
