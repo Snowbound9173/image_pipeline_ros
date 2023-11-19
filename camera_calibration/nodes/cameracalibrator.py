@@ -84,6 +84,10 @@ def main():
                      action="append", default=[],
                      help="ArUco marker dictionary; only valid with `-p charuco`; one of 'aruco_orig', '4x4_250', " +
                      "'5x5_250', '6x6_250', '7x7_250'")
+    group.add_option("--downsample-ratio", 
+                    type="int", 
+                    default=1, 
+                    help="Ratio to downsample the image for detection. 1 means no change, 2 means reduce to half, etc.")
     parser.add_option_group(group)
     group = OptionGroup(parser, "ROS Communication Options")
     group.add_option("--approximate",

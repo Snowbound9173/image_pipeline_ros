@@ -33,6 +33,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from io import BytesIO
+import math
 import cv2
 import cv_bridge
 import image_geometry
@@ -317,8 +318,8 @@ class Calibrator():
     """
     Base class for calibration system
     """
-    def __init__(self, boards, flags=0, fisheye_flags = 0, pattern=Patterns.Chessboard, name='',
-    checkerboard_flags=cv2.CALIB_CB_FAST_CHECK, max_chessboard_speed = -1.0):
+    def __init__(self, downsample_ratio=1,boards, flags=0, fisheye_flags = 0, pattern=Patterns.Chessboard, name='',
+    checkerboard_flags=cv2.CALIB_CB_FAST_CHECK, max_chessboard_speed = -1.0):        
         # Ordering the dimensions for the different detectors is actually a minefield...
         if pattern == Patterns.Chessboard:
             # Make sure n_cols > n_rows to agree with OpenCV CB detector output
@@ -331,7 +332,8 @@ class Calibrator():
         elif pattern == Patterns.Circles:
             # We end up having to check both ways anyway
             self._boards = boards
-
+        # downsample ratio 
+        self.downsample_ratio = downsample_ratio
         # Set to true after we perform calibration
         self.calibrated = False
         self.calib_flags = flags
@@ -505,6 +507,12 @@ class Calibrator():
         Returns (ok, corners, ids, board)
         """
 
+        # Downsample image
+        if self.downsample_ratio > 1:
+            width = int(img.shape[1] / self.downsample_ratio)
+            height = int(img.shape[0] / self.downsample_ratio)
+            img = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
+
         for b in self._boards:
             if self.pattern == Patterns.Chessboard:
                 (ok, corners) = _get_corners(img, b, refine, self.checkerboard_flags)
@@ -518,28 +526,27 @@ class Calibrator():
                 return (ok, corners, ids, b)
         return (False, None, None, None)
 
-    def downsample_and_detect(self, img):
+    def downsample_and_detect(self, img, downsample_ratio=1):
         """
-        Downsample the input image to approximately VGA resolution and detect the
+        Downsample the input image based on the specified ratio and detect the
         calibration target corners in the full-size image.
 
-        Combines these apparently orthogonal duties as an optimization. Checkerboard
-        detection is too expensive on large images, so it's better to do detection on
-        the smaller display image and scale the corners back up to the correct size.
-
-        Returns (scrib, corners, downsampled_corners, ids, board, (x_scale, y_scale)).
+        :param img: Input image to be downscaled.
+        :param downsample_ratio: The ratio by which the image size is reduced. 
+                                 1 means no change, 2 means reduce to half, etc.
+        :return: Tuple containing processed data.
         """
-        # Scale the input image down to ~VGA size
-        height = img.shape[0]
-        width = img.shape[1]
-        scale = math.sqrt( (width*height) / (640.*480.) )
-        if scale > 1.0:
-            scrib = cv2.resize(img, (int(width / scale), int(height / scale)))
-        else:
-            scrib = img
-        # Due to rounding, actual horizontal/vertical scaling may differ slightly
-        x_scale = float(width) / scrib.shape[1]
-        y_scale = float(height) / scrib.shape[0]
+        # Calculate target resolution
+        height, width = img.shape[:2]
+        target_width = int(width / downsample_ratio)
+        target_height = int(height / downsample_ratio)
+
+        # Resize the image
+        scrib = cv2.resize(img, (target_width, target_height))
+
+        # Calculate actual scaling factors
+        x_scale = float(width) / target_width
+        y_scale = float(height) / target_height
 
         if self.pattern == Patterns.Chessboard:
             # Detect checkerboard
